@@ -1,13 +1,13 @@
 
 from odmantic import Model, Field
 from typing import List, Optional
-from bson import ObjectId  # Import ObjectId from bson
+from bson import ObjectId
 
 # Entidade: Aluno
 class Student(Model):
     name: str
     age: int
-    grade: str  # Ano escolar
+    grade: str  
     guardian_id: Optional[ObjectId] = None  # Relação 1x1
     course_ids: List[ObjectId] = Field(default_factory=list)  # Relação NxN
 
@@ -18,6 +18,7 @@ class Guardian(Model):
     email: str
     address: str
     student_id: Optional[ObjectId] = None  # Relação 1x1 
+    
 # Entidade: Curso
 class Course(Model):
     name: str
