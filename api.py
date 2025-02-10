@@ -290,3 +290,66 @@ async def filter_entities(
         "filters": query,
         "results": entities
     }
+
+
+@app.get("/classroom/{classroom_id}/students-with-guardians", tags=["Complex Queries"])
+async def get_classroom_students_with_guardians(classroom_id: str):
+    try:
+        classroom_object_id = ObjectId(classroom_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid classroom ID format")
+
+    classroom = await engine.find_one(Classroom, Classroom.id == classroom_object_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    students = await engine.find(Student, Student.classroom_ids == classroom_object_id)
+
+    guardian_ids = [s.guardian_id for s in students if s.guardian_id]
+    guardians = await engine.find(Guardian, Guardian.id.in_(guardian_ids))
+    guardian_map = {g.id: g for g in guardians}
+
+    return {
+        "classroom": classroom,
+        "students": [
+            {
+                "student": student,
+                "guardian": guardian_map.get(student.guardian_id)
+            } 
+            for student in students
+        ]
+    }
+
+@app.get("/teachers/{teacher_id}/courses-with-details", tags=["Complex Queries"])
+async def get_teacher_classroom_with_details(teacher_id: str):
+    try:
+        obj_teacher_id = ObjectId(teacher_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid teacher ID format")
+
+    teacher = await engine.find_one(Teacher, Teacher.id == obj_teacher_id)
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+
+    classrooms = await engine.find(Classroom, Classroom.teacher_id == obj_teacher_id)
+
+    student_ids = list({sid for classroom in classrooms for sid in classroom.student_ids})
+    students = await engine.find(Student, Student.id.in_(student_ids))
+    student_map = {s.id: s for s in students}
+
+    course_ids = [c.course_id for c in classrooms]
+    
+    courses = await engine.find(Course, Course.id.in_(course_ids))
+    courses_map = {c.id: c for c in courses}
+
+    return {
+        "teacher": teacher.name,
+        "classrooms": [
+            {
+                "classroom": classroom,
+                "courses": courses_map.get(classroom.course_id),
+                "students": [student_map[sid] for sid in classroom.student_ids if sid in student_map]
+            }
+            for classroom in classrooms
+        ]
+    }
