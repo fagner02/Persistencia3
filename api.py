@@ -12,7 +12,7 @@ app = FastAPI()
 # CRUD para Aluno
 @app.post("/students/")
 async def create_student(student: StudentCreate):
-    new_student = Student(**student.dict())
+    new_student = Student(**student.model_dump())
     await engine.save(new_student)
     return new_student
 
