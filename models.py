@@ -1,15 +1,15 @@
 
-from odmantic import Model, Field, Reference
+from odmantic import Model, Field
 from typing import List, Optional
-from pydantic import BaseModel
+from bson import ObjectId  # Import ObjectId from bson
 
 # Entidade: Aluno
 class Student(Model):
     name: str
     age: int
     grade: str  # Ano escolar
-    guardian_id: Optional[int] = Field(default=None, foreign_key="guardian.id")  # Relação 1x1
-    courses: List[int] = Field(default_factory=list)  # Relação NxN
+    guardian_id: Optional[ObjectId] = None  # Relação 1x1
+    course_ids: List[ObjectId] = Field(default_factory=list)  # Relação NxN
 
 # Entidade: Responsável
 class Guardian(Model):
@@ -17,14 +17,13 @@ class Guardian(Model):
     phone: str
     email: str
     address: str
-    student_id: Optional[int] = Field(default=None, foreign_key="student.id")  # Relação 1x1
-
+    student_id: Optional[ObjectId] = None  # Relação 1x1 
 # Entidade: Curso
 class Course(Model):
     name: str
     description: str
-    teacher_id: int = Field(foreign_key="teacher.id")  # Relação 1xN
-    students: List[int] = Field(default_factory=list)  # Relação NxN
+    teacher_id: ObjectId = Field(...)  # Relação 1xN 
+    student_ids: List[ObjectId] = Field(default_factory=list)  # Relação NxN
 
 # Entidade: Professor
 class Teacher(Model):
@@ -32,45 +31,45 @@ class Teacher(Model):
     subject: str
     email: str
     phone: str
-    courses: List[int] = Field(default_factory=list)  # Relação 1xN
+    course_ids: List[ObjectId] = Field(default_factory=list)  # Relação 1xN
 
 # Entidade: Sala de Aula
 class Classroom(Model):
     room_number: str
     capacity: int
-    course_id: int = Field(foreign_key="course.id")  # Relação 1x1
-    teacher_id: int = Field(foreign_key="teacher.id")  # Relação 1x1
+    course_id: ObjectId = Field(...)  # Relação 1x1 
+    teacher_id: ObjectId = Field(...)  # Relação 1x1
 
 # Schemas Pydantic para validação de entrada
-class StudentCreate(BaseModel):
+class StudentCreate(Model):
     name: str
     age: int
     grade: str
-    guardian_id: Optional[int] = None
-    courses: List[int] = []
+    guardian_id: Optional[ObjectId] = None
+    course_ids: List[ObjectId] = []
 
-class GuardianCreate(BaseModel):
+class GuardianCreate(Model):
     name: str
     phone: str
     email: str
     address: str
-    student_id: Optional[int] = None
+    student_id: Optional[ObjectId] = None
 
-class CourseCreate(BaseModel):
+class CourseCreate(Model):
     name: str
     description: str
-    teacher_id: int
-    students: List[int] = []
+    teacher_id: ObjectId
+    student_ids: List[ObjectId] = []
 
-class TeacherCreate(BaseModel):
+class TeacherCreate(Model):
     name: str
     subject: str
     email: str
     phone: str
-    courses: List[int] = []
+    course_ids: List[ObjectId] = []
 
-class ClassroomCreate(BaseModel):
+class ClassroomCreate(Model):
     room_number: str
     capacity: int
-    course_id: int
-    teacher_id: int
+    course_id: ObjectId
+    teacher_id: ObjectId
