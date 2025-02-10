@@ -41,7 +41,6 @@ class Classroom(Model):
     course_id: ObjectId = Field(...)  # Relação 1x1 
     teacher_id: ObjectId = Field(...)  # Relação 1x1
 
-# Schemas Pydantic para validação de entrada
 class StudentCreate(Model):
     name: str
     age: int
