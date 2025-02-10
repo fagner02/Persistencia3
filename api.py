@@ -24,7 +24,7 @@ async def update_student(student_id: ObjectId, student_data: StudentCreate):
     student = await engine.find_one(Student, Student.id == student_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    student.update(student_data.model_dumps())
+    student.model_update(student_data.model_dumps())
     await engine.save(student)
     return student
 
@@ -53,7 +53,7 @@ async def update_guardian(guardian_id: ObjectId, guardian_data: GuardianCreate):
     guardian = await engine.find_one(Guardian, Guardian.id == guardian_id)
     if not guardian:
         raise HTTPException(status_code=404, detail="Guardian not found")
-    guardian.update(guardian_data.model_dumps())
+    guardian.model_update(guardian_data.model_dumps())
     await engine.save(guardian)
     return guardian
 
@@ -81,7 +81,7 @@ async def update_course(course_id: ObjectId, course_data: CourseCreate):
     course = await engine.find_one(Course, Course.id == course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    course.update(course_data.model_dumps())
+    course.model_update(course_data.model_dumps())
     await engine.save(course)
     return course
 
@@ -109,7 +109,7 @@ async def update_teacher(teacher_id: ObjectId, teacher_data: TeacherCreate):
     teacher = await engine.find_one(Teacher, Teacher.id == teacher_id)
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
-    teacher.update(teacher_data.model_dumps())
+    teacher.model_update(teacher_data.model_dumps())
     await engine.save(teacher)
     return teacher
 
@@ -137,7 +137,7 @@ async def update_classroom(classroom_id: ObjectId, classroom_data: ClassroomCrea
     classroom = await engine.find_one(Classroom, Classroom.id == classroom_id)
     if not classroom:
         raise HTTPException(status_code=404, detail="Classroom not found")
-    classroom.update(classroom_data.model_dumps())
+    classroom.model_update(classroom_data.model_dumps())
     await engine.save(classroom)
     return classroom
 
