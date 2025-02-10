@@ -2,8 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from typing import Optional
 from odmantic import ObjectId
 from models import (
-    Student, Guardian, Course, Teacher, Classroom,
-    StudentCreate, GuardianCreate, CourseCreate, TeacherCreate, ClassroomCreate
+    Student, Guardian, Course, Teacher, Classroom
 )
 from database import engine
 
@@ -11,8 +10,23 @@ app = FastAPI()
 
 # CRUD ALUNO
 @app.post("/students/", tags=["Student"])
-async def create_student(student: StudentCreate):
+async def create_student(student: Student):
     new_student = Student(**student.model_dump())
+    if new_student.guardian_id:
+        guardian = await engine.find_one(Guardian, Guardian.id == new_student.guardian_id)
+        if not guardian:
+            raise HTTPException(status_code=404, detail="Guardian not found")
+        guardian.student_id = new_student.id
+        await engine.save(guardian)
+    else:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+    # update classroom entity with student_id
+    for classroom_id in new_student.classroom_ids:
+        classroom = await engine.find_one(Classroom, Classroom.id == classroom_id)
+        if not classroom:
+            raise HTTPException(status_code=404, detail="Classroom not found")
+        classroom.student_ids.append(new_student.id)
+        await engine.save(classroom)
     print(new_student)
     await engine.save(new_student)
     return new_student
@@ -29,11 +43,11 @@ async def list_students():
     return await engine.find(Student)
 
 @app.put("/students/{student_id}", tags=["Student"])
-async def update_student(student_id: ObjectId, student_data: StudentCreate):
+async def update_student(student_id: ObjectId, student_data: Student):
     student = await engine.find_one(Student, Student.id == student_id)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    student.model_update(student_data.model_dump())
+    student.model_update(student_data.model_dump(), exclude={"classroom_ids", "guardian_id", "id"})
     await engine.save(student)
     return student
 
@@ -47,7 +61,7 @@ async def delete_student(student_id: ObjectId):
 
 # CRUD RESPONSÁVEL
 @app.post("/guardians/", tags=["Guardian"])
-async def create_guardian(guardian: GuardianCreate):
+async def create_guardian(guardian: Guardian):
     new_guardian = Guardian(**guardian.model_dump())
     await engine.save(new_guardian)
     return new_guardian
@@ -64,11 +78,11 @@ async def list_guardians():
     return await engine.find(Guardian)
 
 @app.put("/guardians/{guardian_id}", tags=["Guardian"])
-async def update_guardian(guardian_id: ObjectId, guardian_data: GuardianCreate):
+async def update_guardian(guardian_id: ObjectId, guardian_data: Guardian):
     guardian = await engine.find_one(Guardian, Guardian.id == guardian_id)
     if not guardian:
         raise HTTPException(status_code=404, detail="Guardian not found")
-    guardian.model_update(guardian_data.model_dump())
+    guardian.model_update(guardian_data.model_dump(), exclude={"student_id","id"})
     await engine.save(guardian)
     return guardian
 
@@ -82,7 +96,7 @@ async def delete_guardian(guardian_id: ObjectId):
 
 # CRUD CURSO
 @app.post("/courses/", tags=["Course"])
-async def create_course(course: CourseCreate):
+async def create_course(course: Course):
     new_course = Course(**course.model_dump())
     await engine.save(new_course)
     return new_course
@@ -99,11 +113,11 @@ async def list_courses():
     return await engine.find(Course)
 
 @app.put("/courses/{course_id}", tags=["Course"])
-async def update_course(course_id: ObjectId, course_data: CourseCreate):
+async def update_course(course_id: ObjectId, course_data: Course):
     course = await engine.find_one(Course, Course.id == course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    course.model_update(course_data.model_dump())
+    course.model_update(course_data.model_dump(), exclude={"classroom_ids","id"})
     await engine.save(course)
     return course
 
@@ -117,7 +131,7 @@ async def delete_course(course_id: ObjectId):
 
 # CRUD PROFESSOR
 @app.post("/teachers/", tags=["Teacher"])
-async def create_teacher(teacher: TeacherCreate):
+async def create_teacher(teacher: Teacher):
     new_teacher = Teacher(**teacher.model_dump())
     await engine.save(new_teacher)
     return new_teacher
@@ -134,11 +148,11 @@ async def list_teachers():
     return await engine.find(Teacher)
 
 @app.put("/teachers/{teacher_id}", tags=["Teacher"])
-async def update_teacher(teacher_id: ObjectId, teacher_data: TeacherCreate):
+async def update_teacher(teacher_id: ObjectId, teacher_data: Teacher):
     teacher = await engine.find_one(Teacher, Teacher.id == teacher_id)
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
-    teacher.model_update(teacher_data.model_dump())
+    teacher.model_update(teacher_data.model_dump(), exclude={"classroom_ids", "id"})
     await engine.save(teacher)
     return teacher
 
@@ -152,10 +166,21 @@ async def delete_teacher(teacher_id: ObjectId):
 
 # CRUD SALA DE AULA
 @app.post("/classrooms/", tags=["Classroom"])
-async def create_classroom(classroom: ClassroomCreate):
+async def create_classroom(classroom: Classroom):
     new_classroom = Classroom(**classroom.model_dump())
+    course = await engine.find_one(Course, Course.id == new_classroom.course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    course.classroom_ids.append(new_classroom.id)
+    teacher = await engine.find_one(Teacher, Teacher.id == new_classroom.teacher_id)
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    teacher.classroom_ids.append(new_classroom.id)
+
+    await engine.save(course)
     await engine.save(new_classroom)
     return new_classroom
+    
 
 @app.get("/classrooms/{classroom_id}", tags=["Classroom"])
 async def get_classroom_by_id(classroom_id: ObjectId):
@@ -169,11 +194,11 @@ async def list_classrooms():
     return await engine.find(Classroom)
 
 @app.put("/classrooms/{classroom_id}", tags=["Classroom"])
-async def update_classroom(classroom_id: ObjectId, classroom_data: ClassroomCreate):
+async def update_classroom(classroom_id: ObjectId, classroom_data: Classroom):
     classroom = await engine.find_one(Classroom, Classroom.id == classroom_id)
     if not classroom:
         raise HTTPException(status_code=404, detail="Classroom not found")
-    classroom.model_update(classroom_data.model_dump())
+    classroom.model_update(classroom_data.model_dump(), exclude={"teacher_id", "course_id", "student_ids", "id"})
     await engine.save(classroom)
     return classroom
 
@@ -235,8 +260,6 @@ async def paginate_entities(
 async def filter_entities(
     collection_name: str,
     name: Optional[str] = Query(None),
-    grade: Optional[str] = Query(None),
-    subject: Optional[str] = Query(None),
     min_age: Optional[int] = Query(None),
     max_age: Optional[int] = Query(None)
 ):
@@ -255,11 +278,7 @@ async def filter_entities(
     query = {}
 
     if name:
-        query["name"] = name
-    if grade:
-        query["grade"] = grade
-    if subject:
-        query["subject"] = subject
+        query["name"] = {"$regex": name, "$options": "i"}
     if min_age is not None:
         query["age"] = {"$gte": min_age}
     if max_age is not None:
