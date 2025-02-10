@@ -1,4 +1,3 @@
-
 from odmantic import Model, Field
 from typing import List, Optional
 from bson import ObjectId
@@ -18,7 +17,7 @@ class Guardian(Model):
     email: str
     address: str
     student_id: Optional[ObjectId] = None  # Relação 1x1 
-    
+
 # Entidade: Curso
 class Course(Model):
     name: str
