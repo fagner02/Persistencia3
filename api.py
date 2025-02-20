@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, Query
-import datetime
 from typing import Optional
 from odmantic import ObjectId
 from models import (
@@ -358,74 +357,43 @@ async def get_teacher_classroom_with_details(teacher_id: str):
     }
 
 # DEMAIS CONSULTAS
-# 1. Listagens filtradas por relacionamentos
-@app.get("/students/by-guardian/{guardian_id}", tags=["Relationship Filtering"])
-async def get_students_by_guardian(guardian_id: ObjectId):
-    guardian = await engine.find_one(Guardian, Guardian.id == guardian_id)
-    if not guardian:
-        raise HTTPException(status_code=404, detail="Guardian not found")
-    students = await engine.find(Student, Student.guardian_id == guardian_id)
-    return students
-
-# 2. Busca por texto parcial
-@app.get("/courses/search", tags=["Text Search"])
-async def search_courses(query: str = Query(...)):
-    courses = await engine.find(Course, {
-        "$or": [
-            {"name": {"$regex": query, "$options": "i"}},
-            {"description": {"$regex": query, "$options": "i"}}
-        ]
-    })
-    return courses
-
-# 3. Filtros por data/ano
-@app.get("/students/by-graduation-year/{year}", tags=["Year Filter"])
-async def get_students_by_graduation_year(year: int):
-    current_year = datetime.now().year
-    estimated_age = current_year - year + 18  # Supondo ano de formatura do ensino médio
-    students = await engine.find(Student, Student.age >= estimated_age)
-    return students
-
-# 4. Agregações e contagens
-@app.get("/courses/student-count", tags=["Aggregations"])
-async def get_courses_student_count():
-    pipeline = [
-        {
-            "$lookup": {
-                "from": "classroom",
-                "localField": "classroom_ids",
-                "foreignField": "_id",
-                "as": "classrooms"
-            }
-        },
-        {
-            "$project": {
-                "name": 1,
-                "total_students": {
-                    "$sum": {
-                        "$map": {
-                            "input": "$classrooms",
-                            "as": "class",
-                            "in": {"$size": "$$class.student_ids"}
-                        }
-                    }
-                }
-            }
-        }
-    ]
-    result = await engine.aggregate(Course, pipeline)
-    return list(result)
-
-# 5. Classificações e ordenações
-@app.get("/students/", tags=["Student"])
-async def list_students(
-    sort_by: Optional[str] = None,
-    order: Optional[str] = Query("asc", regex="^(asc|desc)$")
+@app.get("/classroomss/", tags=["Queries"])
+async def list_classrooms(
+    course_id: Optional[str] = Query(None),
+    teacher_id: Optional[str] = Query(None),
+    student_id: Optional[str] = Query(None)
 ):
-    sort = []
-    if sort_by:
-        if sort_by not in Student.__fields__:
-            raise HTTPException(status_code=400, detail="Invalid sort field")
-        sort_order = 1 if order == "asc" else -1
-        sort.append((sort_by, sort_order))
-    return await engine.find(Student, sort=sort)
+    query = {}
+    if course_id:
+        try:
+            query["course_id"] = ObjectId(course_id)
+        except:
+            raise HTTPException(400, "Invalid course_id")
+    if teacher_id:
+        try:
+            query["teacher_id"] = ObjectId(teacher_id)
+        except:
+            raise HTTPException(400, "Invalid teacher_id")
+    if student_id:
+        try:
+            query["student_ids"] = ObjectId(student_id)
+        except:
+            raise HTTPException(400, "Invalid student_id")
+    return await engine.find(Classroom, query)
+
+@app.get("/classrooms/{classroom_id}/students-count", tags=["Queries"])
+async def get_classroom_students_count(classroom_id: str):
+    try:
+        classroom_object_id = ObjectId(classroom_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid classroom ID format")
+
+    classroom = await engine.find_one(Classroom, Classroom.id == classroom_object_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    students_count = await engine.count(Student, Student.classroom_ids == classroom_object_id)
+    return {
+        "classroom": classroom,
+        "students_count": students_count
+    }
