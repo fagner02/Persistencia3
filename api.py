@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
+import datetime
 from typing import Optional
 from odmantic import ObjectId
 from models import (
@@ -20,7 +21,7 @@ async def create_student(student: Student):
         await engine.save(guardian)
     else:
         raise HTTPException(status_code=404, detail="Guardian not found")
-    # update classroom entity with student_id
+    
     for classroom_id in new_student.classroom_ids:
         classroom = await engine.find_one(Classroom, Classroom.id == classroom_id)
         if not classroom:
@@ -181,7 +182,6 @@ async def create_classroom(classroom: Classroom):
     await engine.save(new_classroom)
     return new_classroom
     
-
 @app.get("/classrooms/{classroom_id}", tags=["Classroom"])
 async def get_classroom_by_id(classroom_id: ObjectId):
     classroom = await engine.find_one(Classroom, Classroom.id == classroom_id)
@@ -210,6 +210,7 @@ async def delete_classroom(classroom_id: ObjectId):
     await engine.delete(classroom)
     return {"message": "Classroom deleted"}
 
+# QUANTIDADE DE ENTIDADES
 @app.get("/count/{collection_name}", tags=["Count"])
 async def count_entities(collection_name: str):
     collections = {
@@ -227,6 +228,7 @@ async def count_entities(collection_name: str):
     count = await engine.count(model)
     return {"collection": collection_name, "count": count}
 
+# PAGINAÇÃO
 @app.get("/paginate/{collection_name}", tags=["Pagination"])
 async def paginate_entities(
     collection_name: str,
@@ -256,6 +258,7 @@ async def paginate_entities(
         "results": entities
     }
 
+# FILTRAR ENTIDADES POR ATRIBUTOS ESPECÍFICOS
 @app.get("/filter/{collection_name}", tags=["Filtering"])
 async def filter_entities(
     collection_name: str,
@@ -291,7 +294,7 @@ async def filter_entities(
         "results": entities
     }
 
-
+# CONSULTAS COMPLEXAS
 @app.get("/classroom/{classroom_id}/students-with-guardians", tags=["Complex Queries"])
 async def get_classroom_students_with_guardians(classroom_id: str):
     try:
@@ -353,3 +356,76 @@ async def get_teacher_classroom_with_details(teacher_id: str):
             for classroom in classrooms
         ]
     }
+
+# DEMAIS CONSULTAS
+# 1. Listagens filtradas por relacionamentos
+@app.get("/students/by-guardian/{guardian_id}", tags=["Relationship Filtering"])
+async def get_students_by_guardian(guardian_id: ObjectId):
+    guardian = await engine.find_one(Guardian, Guardian.id == guardian_id)
+    if not guardian:
+        raise HTTPException(status_code=404, detail="Guardian not found")
+    students = await engine.find(Student, Student.guardian_id == guardian_id)
+    return students
+
+# 2. Busca por texto parcial
+@app.get("/courses/search", tags=["Text Search"])
+async def search_courses(query: str = Query(...)):
+    courses = await engine.find(Course, {
+        "$or": [
+            {"name": {"$regex": query, "$options": "i"}},
+            {"description": {"$regex": query, "$options": "i"}}
+        ]
+    })
+    return courses
+
+# 3. Filtros por data/ano
+@app.get("/students/by-graduation-year/{year}", tags=["Year Filter"])
+async def get_students_by_graduation_year(year: int):
+    current_year = datetime.now().year
+    estimated_age = current_year - year + 18  # Supondo ano de formatura do ensino médio
+    students = await engine.find(Student, Student.age >= estimated_age)
+    return students
+
+# 4. Agregações e contagens
+@app.get("/courses/student-count", tags=["Aggregations"])
+async def get_courses_student_count():
+    pipeline = [
+        {
+            "$lookup": {
+                "from": "classroom",
+                "localField": "classroom_ids",
+                "foreignField": "_id",
+                "as": "classrooms"
+            }
+        },
+        {
+            "$project": {
+                "name": 1,
+                "total_students": {
+                    "$sum": {
+                        "$map": {
+                            "input": "$classrooms",
+                            "as": "class",
+                            "in": {"$size": "$$class.student_ids"}
+                        }
+                    }
+                }
+            }
+        }
+    ]
+    result = await engine.aggregate(Course, pipeline)
+    return list(result)
+
+# 5. Classificações e ordenações
+@app.get("/students/", tags=["Student"])
+async def list_students(
+    sort_by: Optional[str] = None,
+    order: Optional[str] = Query("asc", regex="^(asc|desc)$")
+):
+    sort = []
+    if sort_by:
+        if sort_by not in Student.__fields__:
+            raise HTTPException(status_code=400, detail="Invalid sort field")
+        sort_order = 1 if order == "asc" else -1
+        sort.append((sort_by, sort_order))
+    return await engine.find(Student, sort=sort)

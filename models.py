@@ -2,7 +2,7 @@ from odmantic import Model, Field
 from typing import List, Optional
 from bson import ObjectId
 
-# Entidade: Aluno
+# ENTIDADE: ALUNO
 class Student(Model):
     name: str
     age: int
@@ -10,7 +10,7 @@ class Student(Model):
     guardian_id: Optional[ObjectId] = None  # Relação 1x1
     classroom_ids: List[ObjectId] = Field(default_factory=list)  # Relação NxN
 
-# Entidade: Responsável
+# ENTIDADE: RESPONSÁVEL
 class Guardian(Model):
     name: str
     phone: str
@@ -18,7 +18,7 @@ class Guardian(Model):
     address: str
     student_id: Optional[ObjectId] = None  # Relação 1x1 
 
-# Entidade: Curso
+# ENTIDADE: CURSO
 class Course(Model):
     name: str
     description: str
@@ -26,7 +26,7 @@ class Course(Model):
     prerequisites: List[str] = Field(default_factory=list)
     classroom_ids: List[ObjectId] = Field(default_factory=list)  # Relação 1xN
 
-# Entidade: Professor
+# ENTIDADE: PROFESSOR
 class Teacher(Model):
     name: str
     subject: str
@@ -34,7 +34,7 @@ class Teacher(Model):
     phone: str
     classroom_ids: List[ObjectId] = Field(default_factory=list)  # Relação 1xN
 
-# Entidade: Sala de Aula
+# ENTIDADE: SALA DE AULA
 class Classroom(Model):
     room_number: str
     capacity: int
